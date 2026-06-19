@@ -4,10 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>흑백창업가 엔젤투자 전광판</title>
+    <!-- 폰트 및 아이콘 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- ✨ Supabase JS SDK 추가 ✨ -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -43,7 +48,7 @@
             background: #3b82f6; color: white; border: none; padding: 16px; font-size: 18px;
             font-weight: 700; border-radius: 10px; width: 100%; cursor: pointer; transition: 0.2s;
         }
-        .btn-primary:hover { background: #2563eb; transform: translateY(-2px); }
+        .btn-primary:hover:not(:disabled) { background: #2563eb; transform: translateY(-2px); }
         .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; transform: none; }
         .btn-back {
             background: transparent; border: none; color: #64748b; margin-bottom: 20px;
@@ -138,9 +143,23 @@
         .comment-list::-webkit-scrollbar { width: 6px; }
         .comment-list::-webkit-scrollbar-track { background: transparent; }
         .comment-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* 로딩 오버레이 추가 */
+        #loading-overlay {
+            display: none; position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(255,255,255,0.8); z-index: 9999;
+            justify-content: center; align-items: center; flex-direction: column; gap:15px;
+        }
+        .spinner { font-size: 40px; color: #3b82f6; animation: fa-spin 1s infinite linear; }
     </style>
 </head>
 <body>
+
+    <!-- 초기 데이터 로딩 중 화면 -->
+    <div id="loading-overlay">
+        <i class="fa-solid fa-circle-notch spinner"></i>
+        <h2 style="color:#0f172a;">실시간 데이터를 불러오는 중입니다...</h2>
+    </div>
 
     <!-- [온보딩 Step 1] 반 선택 및 초대코드 -->
     <div id="step1-view" class="auth-view">
@@ -160,7 +179,7 @@
         </div>
 
         <div class="input-group">
-            <label for="invite-code">초대코드 (테스트용: 1234)</label>
+            <label for="invite-code">초대코드 입력</label>
             <input type="password" id="invite-code" class="form-control" placeholder="초대코드 4자리를 입력하세요">
         </div>
 
@@ -234,29 +253,62 @@
     </div>
 
     <script>
+        // ==========================================
+        // ✨ Supabase 설정 영역 ✨
+        // ==========================================
+        const SUPABASE_URL = 'https://azdqhbyshxtfunurmyzz.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6ZHFoYnlzaHh0ZnVudXJteXp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzI5NDUsImV4cCI6MjA5NDA0ODk0NX0.xntiwlS5dOdvt9_7Xtstzu9jAGcwhrBp-vfOC7TlVCo';
+        
+        // Supabase 클라이언트 초기화 (필수!!!)
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         // --- 전역 상태 및 데이터 ---
-        // (Supabase 연결 전이므로 로컬 메모리 활용)
-        const MOCK_INVITE_CODE = "1234"; // DB에서 가져올 임시 초대코드
-        
         let currentUser = { classId: null, group: null, nickname: '' };
-        let selectedTeamId = null; // 현재 상세 보기 중인 조 (null이면 전체보기)
+        let selectedTeamId = null; 
         
-        // 6개 조 데이터 초기화
-        const teamsData = Array.from({ length: 6 }, (_, i) => ({
+        // 6개 조 데이터 초기화 (DB에서 불러와 덮어씁니다)
+        let teamsData = Array.from({ length: 6 }, (_, i) => ({
             id: i + 1,
             name: `${i + 1}조`,
             comments: []
         }));
 
         // --- 온보딩 로직 ---
-        function verifyClassCode() {
+        async function verifyClassCode() {
             const classId = document.getElementById('class-select').value;
             const code = document.getElementById('invite-code').value;
 
             if (!classId) return alert("참여할 반을 선택해주세요.");
-            if (code !== MOCK_INVITE_CODE) return alert("초대코드가 올바르지 않습니다."); // 추후 DB 검증 로직으로 교체
+            if (!code) return alert("초대코드를 입력해주세요.");
 
-            currentUser.classId = classId;
+            // 버튼 상태 변경 (확인 중)
+            const btn = document.querySelector('#step1-view .btn-primary');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = '코드 확인 중...';
+
+            // 🌟 Supabase DB에서 해당 반의 초대코드 가져오기
+            const { data, error } = await supabaseClient
+                .from('classes')
+                .select('invite_code')
+                .eq('id', parseInt(classId))
+                .single();
+
+            btn.disabled = false;
+            btn.innerText = originalText;
+
+            if (error || !data) {
+                console.error('초대코드 확인 에러:', error);
+                return alert("데이터베이스 오류이거나 존재하지 않는 반입니다.");
+            }
+
+            // DB에 저장된 코드와 입력한 코드가 일치하는지 검증
+            if (data.invite_code !== code) {
+                return alert("초대코드가 일치하지 않습니다. 다시 확인해주세요.");
+            }
+
+            // 인증 성공
+            currentUser.classId = parseInt(classId);
             document.getElementById('display-class-num').innerText = `${classId}반`;
             
             document.getElementById('step1-view').style.display = 'none';
@@ -268,7 +320,7 @@
             document.getElementById('step1-view').style.display = 'block';
         }
 
-        function enterDashboard() {
+        async function enterDashboard() {
             const groupVal = document.getElementById('my-group').value;
             const nicknameVal = document.getElementById('my-nickname').value.trim();
 
@@ -283,7 +335,7 @@
             document.getElementById('dash-class-num').innerText = `${currentUser.classId}반`;
             document.getElementById('user-info-display').innerHTML = `<i class="fa-solid fa-user-circle"></i> ${currentUser.nickname} (${currentUser.group}조)`;
 
-            // 투자 대상 셀렉트 박스 설정
+            // 투자 대상 셀렉트 박스 설정 (본인 조 제외)
             const targetSelect = document.getElementById('target-group');
             targetSelect.innerHTML = '<option value="" disabled selected>투자할 조 선택</option>';
             teamsData.forEach(team => {
@@ -292,16 +344,62 @@
                 }
             });
 
-            renderDashboard();
+            // 🌟 대시보드 입장 시 Supabase에서 데이터 불러오고 연동 시작
+            await initDatabaseAndRealtime();
         }
 
-        // --- 화면 렌더링 로직 (Master-Detail) ---
+        // ==========================================
+        // 🌟 Supabase 데이터베이스 통신 로직 🌟
+        // ==========================================
+        async function initDatabaseAndRealtime() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+
+            // 현재 로그인한 '반'의 기존 댓글들 불러오기
+            const { data, error } = await supabaseClient
+                .from('comments')
+                .select('*')
+                .eq('class_id', currentUser.classId)
+                .order('created_at', { ascending: true }); 
+
+            if (error) {
+                console.error('DB 불러오기 에러:', error);
+                alert("데이터베이스 연결에 문제가 발생했습니다. 키 값을 확인해주세요.");
+            } else if (data) {
+                teamsData.forEach(t => t.comments = []); 
+                data.forEach(dbComment => {
+                    const team = teamsData.find(t => t.id === dbComment.team_id);
+                    if(team) team.comments.push({ author: dbComment.author, text: dbComment.text });
+                });
+            }
+
+            renderDashboard();
+            document.getElementById('loading-overlay').style.display = 'none';
+
+            // 실시간 동기화 구독
+            supabaseClient
+              .channel('public:comments')
+              .on(
+                'postgres_changes', 
+                { event: 'INSERT', schema: 'public', table: 'comments', filter: `class_id=eq.${currentUser.classId}` }, 
+                (payload) => {
+                    const newDbComment = payload.new;
+                    const team = teamsData.find(t => t.id === newDbComment.team_id);
+                    
+                    if (team) {
+                        team.comments.push({ author: newDbComment.author, text: newDbComment.text });
+                        handleRealtimeUpdate(team); 
+                    }
+                }
+              )
+              .subscribe();
+        }
+
+        // --- 화면 렌더링 (Master-Detail) ---
         function renderDashboard() {
             const centerPanel = document.getElementById('center-panel');
             const rightPanel = document.getElementById('right-panel');
 
             if (selectedTeamId === null) {
-                // [전체 보기 상태] 작은 모듈 그리드 표시
                 rightPanel.style.display = 'none';
                 centerPanel.innerHTML = `
                     <div style="margin-bottom: 20px; font-weight: bold; font-size: 20px; color: #3b82f6;">
@@ -312,20 +410,15 @@
                     </div>
                 `;
             } else {
-                // [상세 보기 상태] 중앙에 큰 카드, 우측에 나머지 작은 카드
                 const selectedTeam = teamsData.find(t => t.id === selectedTeamId);
                 const otherTeams = teamsData.filter(t => t.id !== selectedTeamId);
 
                 rightPanel.style.display = 'flex';
-                
-                // 중앙 패널 렌더링 (큰 화면)
                 centerPanel.innerHTML = renderDetailHTML(selectedTeam);
                 
-                // 스크롤 맨 아래로 조정
                 const listEl = document.getElementById(`comment-list-${selectedTeam.id}`);
                 if (listEl) listEl.scrollTop = listEl.scrollHeight;
 
-                // 우측 패널 렌더링 (나머지 조)
                 rightPanel.innerHTML = `
                     <div style="font-weight: bold; color: #64748b; margin-bottom: 5px;">다른 조 현황</div>
                     ${otherTeams.map(renderSummaryHTML).join('')}
@@ -333,7 +426,6 @@
             }
         }
 
-        // 작은 박스형 모듈 HTML 생성 함수
         function renderSummaryHTML(team) {
             const count = team.comments.length;
             const coins = Math.floor(count / 5);
@@ -349,7 +441,6 @@
             `;
         }
 
-        // 큰 상세 모듈 HTML 생성 함수
         function renderDetailHTML(team) {
             const count = team.comments.length;
             const coins = Math.floor(count / 5);
@@ -386,44 +477,65 @@
             `;
         }
 
-        // 조 클릭 (상세보기 토글)
         function selectTeam(id) {
             selectedTeamId = id;
-            
-            // 만약 좌측 '투자할 조' 셀렉트박스에 해당 조가 있다면 자동 선택
             if (id !== null && id !== currentUser.group) {
                 document.getElementById('target-group').value = id;
             }
-            
             renderDashboard();
         }
 
-        // --- 투자하기 및 애니메이션 로직 ---
-        function submitInvestment() {
+        // --- 투자하기 DB 저장 ---
+        async function submitInvestment() {
             const targetId = parseInt(document.getElementById('target-group').value);
             const text = document.getElementById('comment-input').value.trim();
 
             if (!targetId || !text) return alert("투자할 조를 선택하고 코멘트를 남겨주세요!");
 
-            const team = teamsData.find(t => t.id === targetId);
             const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 전송 중...';
 
-            // 1. 데이터 저장
-            team.comments.push({ author: currentUser.nickname, text: text });
+            selectedTeamId = targetId; 
+            renderDashboard();
+
+            // DB 저장 로직
+            const { error } = await supabaseClient.from('comments').insert({
+                class_id: currentUser.classId,
+                team_id: targetId,
+                author: currentUser.nickname,
+                text: text
+            });
+
+            if (error) {
+                console.error(error);
+                alert("전송 실패. 다시 시도해주세요.");
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> 의견 전송';
+                return;
+            }
+
+            document.getElementById('comment-input').value = '';
+        }
+
+        // --- 실시간 데이터 수신 후 UI/애니메이션 처리 ---
+        function handleRealtimeUpdate(team) {
             const count = team.comments.length;
             const isCoinGenerated = (count % 5 === 0);
 
-            // 2. 투자한 조를 즉시 '상세 보기' 화면으로 전환 (자기가 투자한걸 바로 볼 수 있게)
-            selectedTeamId = targetId;
-            renderDashboard();
-            document.getElementById('comment-input').value = '';
+            renderDashboard(); 
 
-            // 3. 코인 생성 이벤트 애니메이션 처리 (1.5초 딜레이)
-            if (isCoinGenerated) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 코인 생성 중...';
+            const submitBtn = document.getElementById('submit-btn');
+
+            if (isCoinGenerated && selectedTeamId === team.id) {
+                if(submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 코인 생성 중...';
+                }
 
                 const flipEl = document.getElementById('flip-board-detail');
+                if(!flipEl) return;
+
                 const finalCoinCount = Math.floor(count / 5).toString().padStart(2, '0');
                 
                 let elapsed = 0;
@@ -436,16 +548,20 @@
 
                     if (elapsed >= duration) {
                         clearInterval(flipInterval);
-                        flipEl.innerText = finalCoinCount; // 최종 숫자로 고정
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> 의견 전송';
+                        flipEl.innerText = finalCoinCount; 
+                        if(submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> 의견 전송';
+                        }
                     }
                 }, intervalTime);
+            } else {
+                if(submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> 의견 전송';
+                }
             }
         }
-
-const SUPABASE_URL = 'https://azdqhbyshxtfunurmyzz.supabase.co/'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6ZHFoYnlzaHh0ZnVudXJteXp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzI5NDUsImV4cCI6MjA5NDA0ODk0NX0.xntiwlS5dOdvt9_7Xtstzu9jAGcwhrBp-vfOC7TlVCo';
     </script>
 </body>
 </html>
