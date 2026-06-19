@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>흑백창업가 엔젤투자 전광판</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: #f8fafc;
+            font-family: 'Noto Sans KR', sans-serif;
+            color: #0f172a;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px 0;
+        }
+
+        /* 공통 폼 스타일 */
+        .auth-view {
+            margin-top: 10vh;
+            background: #ffffff; padding: 50px; border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+            width: 100%; max-width: 480px; text-align: center; border: 1px solid #e2e8f0;
+        }
+        .auth-view h1 { font-size: 32px; font-weight: 900; margin-bottom: 10px; color: #1e293b; }
+        .auth-view p { color: #64748b; margin-bottom: 30px; }
+        
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-group label { display: block; font-weight: 700; margin-bottom: 8px; color: #334155; }
+        .form-control {
+            width: 100%; padding: 15px; font-size: 16px; font-family: inherit;
+            border: 2px solid #cbd5e1; border-radius: 10px; transition: 0.3s;
+        }
+        .form-control:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+        
+        .btn-primary {
+            background: #3b82f6; color: white; border: none; padding: 16px; font-size: 18px;
+            font-weight: 700; border-radius: 10px; width: 100%; cursor: pointer; transition: 0.2s;
+        }
+        .btn-primary:hover { background: #2563eb; transform: translateY(-2px); }
+        .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; transform: none; }
+        .btn-back {
+            background: transparent; border: none; color: #64748b; margin-bottom: 20px;
+            cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 5px;
+        }
+        .btn-back:hover { color: #0f172a; }
+
+        /* 대시보드 레이아웃 */
+        #dashboard-view {
+            display: none; width: 100%; max-width: 1500px; padding: 40px; min-height: 100vh; flex-direction: column; margin: 0 auto;
+        }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
+        .header h1 { font-size: 32px; font-weight: 900; }
+        .header h1 span { color: #3b82f6; }
+        .user-badge { background: #eff6ff; color: #1d4ed8; padding: 10px 20px; border-radius: 30px; font-weight: 700; border: 1px solid #bfdbfe; }
+
+        /* 3단 분리 컨테이너 (좌:입력 / 중:메인전광판 / 우:기타조) */
+        .dashboard-container { display: flex; gap: 24px; flex-grow: 1; align-items: flex-start; }
+
+        /* [좌측] 투자 폼 */
+        .left-panel { width: 320px; flex-shrink: 0; background: #ffffff; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; position: sticky; top: 40px; }
+        .left-panel h2 { font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        #comment-input { resize: none; height: 120px; }
+        .btn-invest { background: #eab308; color: #000; font-weight: 900; margin-top: 10px; }
+        .btn-invest:hover:not(:disabled) { background: #ca8a04; }
+
+        /* [중앙] 메인 영역 */
+        .center-panel { flex-grow: 1; display: flex; flex-direction: column; }
+        
+        /* [우측] 사이드 리스트 (조 선택 시에만 보임) */
+        .right-panel { width: 280px; flex-shrink: 0; display: none; flex-direction: column; gap: 12px; }
+
+        /* --- 작은 네모 박스형 모듈 (Summary Card) --- */
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+        .summary-card {
+            background: #ffffff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 20px;
+            cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .summary-card:hover { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 8px 16px rgba(59,130,246,0.1); }
+        .summary-card.active { border-color: #3b82f6; background: #eff6ff; }
+        .summary-card h3 { font-size: 20px; font-weight: 900; color: #0f172a; margin-bottom: 15px; }
+        .summary-card .stats { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; color: #475569; }
+        .summary-card .stats .coin-val { color: #eab308; display: flex; align-items: center; gap: 4px; }
+        .summary-card .guide-text { position: absolute; bottom: -20px; left: 0; width: 100%; text-align: center; font-size: 11px; color: #3b82f6; opacity: 0; transition: 0.2s; }
+        .summary-card:hover .guide-text { bottom: 6px; opacity: 1; }
+
+        /* --- 상세 큰 모듈 (Detail Card) --- */
+        .detail-card {
+            background: #ffffff; border: 2px solid #3b82f6; border-radius: 16px; padding: 30px; text-align: left;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.15); display: flex; flex-direction: column;
+        }
+        .detail-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; }
+        .team-info-group { display: flex; flex-direction: column; gap: 10px; }
+        .team-name { font-size: 32px; font-weight: 900; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 15px; }
+        
+        .btn-close-detail { background: #f1f5f9; color: #475569; border: none; padding: 6px 12px; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; }
+        .btn-close-detail:hover { background: #e2e8f0; color: #0f172a; }
+
+        /* 전광판 플립보드 */
+        .flip-board {
+            background: #0f172a; color: #ffffff; font-family: 'Orbitron', monospace; font-size: 56px; font-weight: 900;
+            display: inline-block; min-width: 110px; padding: 10px 16px; border-radius: 12px;
+            position: relative; box-shadow: inset 0 5px 15px rgba(0,0,0,0.6); border: 3px solid #334155;
+            letter-spacing: 3px; text-align: center;
+        }
+        .flip-board::after { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 3px; background: rgba(0,0,0,0.7); transform: translateY(-50%); }
+
+        .coin-container { min-height: 50px; display: flex; justify-content: flex-start; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        .coin { color: #eab308; font-size: 38px; filter: drop-shadow(0 2px 4px rgba(234, 179, 8, 0.5)); animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn {
+            0% { transform: scale(0) translateY(20px) rotate(180deg); opacity: 0; }
+            100% { transform: scale(1) translateY(0) rotate(0deg); opacity: 1; }
+        }
+
+        .comment-count-badge {
+            background: #eff6ff; color: #1d4ed8; padding: 6px 14px; border-radius: 20px;
+            font-weight: 700; font-size: 14px; display: inline-block; border: 1px solid #bfdbfe; width: fit-content;
+        }
+
+        .comment-list {
+            background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;
+            height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+            scroll-behavior: smooth;
+        }
+        .comment-item {
+            background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px;
+            font-size: 16px; color: #334155; text-align: left; line-height: 1.5; word-break: break-all;
+        }
+        .comment-item strong { color: #3b82f6; margin-right: 8px; font-weight: 800; }
+        
+        .comment-list::-webkit-scrollbar { width: 6px; }
+        .comment-list::-webkit-scrollbar-track { background: transparent; }
+        .comment-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- [온보딩 Step 1] 반 선택 및 초대코드 -->
+    <div id="step1-view" class="auth-view">
+        <h1>🏫 학급 입장하기</h1>
+        <p>참여 중인 반을 선택하고 초대코드를 입력하세요.</p>
+        
+        <div class="input-group">
+            <label for="class-select">참여 반 선택 (최대 15개 반)</label>
+            <select id="class-select" class="form-control">
+                <option value="" disabled selected>반을 선택해주세요</option>
+                <script>
+                    for(let i=1; i<=15; i++) {
+                        document.write(`<option value="${i}">${i}반</option>`);
+                    }
+                </script>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="invite-code">초대코드 (테스트용: 1234)</label>
+            <input type="password" id="invite-code" class="form-control" placeholder="초대코드 4자리를 입력하세요">
+        </div>
+
+        <button class="btn-primary" onclick="verifyClassCode()">반 입장 확인</button>
+    </div>
+
+    <!-- [온보딩 Step 2] 조 선택 및 닉네임 -->
+    <div id="step2-view" class="auth-view" style="display: none;">
+        <button class="btn-back" onclick="goBackToStep1()"><i class="fa-solid fa-arrow-left"></i> 뒤로가기</button>
+        <h1>👼 <span id="display-class-num" style="color:#3b82f6;"></span> 엔젤투자자 등록</h1>
+        <p>본인의 조와 활동할 닉네임을 입력해 주세요.</p>
+        
+        <div class="input-group">
+            <label for="my-group">나의 소속 조</label>
+            <select id="my-group" class="form-control">
+                <option value="" disabled selected>몇 조이신가요?</option>
+                <option value="1">1조</option>
+                <option value="2">2조</option>
+                <option value="3">3조</option>
+                <option value="4">4조</option>
+                <option value="5">5조</option>
+                <option value="6">6조</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="my-nickname">활동 닉네임</label>
+            <input type="text" id="my-nickname" class="form-control" placeholder="예: 투자왕, 워렌버핏">
+        </div>
+
+        <button class="btn-primary" onclick="enterDashboard()">전광판 입장하기</button>
+    </div>
+
+    <!-- [메인 화면] 대시보드 -->
+    <div id="dashboard-view">
+        <div class="header">
+            <h1><span id="dash-class-num"></span> <span>엔젤투자 현황판</span></h1>
+            <div class="user-badge" id="user-info-display"></div>
+        </div>
+
+        <div class="dashboard-container">
+            <!-- 좌측: 투자 폼 -->
+            <div class="left-panel">
+                <h2><i class="fa-solid fa-paper-plane text-blue-500"></i> 투자하기</h2>
+                
+                <div class="input-group">
+                    <label>투자할 발표 조 (본인 조 제외)</label>
+                    <select id="target-group" class="form-control"></select>
+                </div>
+
+                <div class="input-group">
+                    <label>엔젤투자 코멘트</label>
+                    <textarea id="comment-input" class="form-control" placeholder="발표 내용에 대한 피드백, 응원 메시지를 남겨주세요. (5개 누적 시 코인 1개 획득!)"></textarea>
+                </div>
+
+                <button id="submit-btn" class="btn-primary btn-invest" onclick="submitInvestment()">
+                    <i class="fa-solid fa-bolt"></i> 의견 전송
+                </button>
+            </div>
+
+            <!-- 중앙: 메인 영역 (그리드 or 상세 뷰) -->
+            <div class="center-panel" id="center-panel">
+                <!-- JS가 렌더링 -->
+            </div>
+
+            <!-- 우측: 사이드바 (상세 뷰 일때만 보임) -->
+            <div class="right-panel" id="right-panel">
+                <!-- JS가 렌더링 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 전역 상태 및 데이터 ---
+        // (Supabase 연결 전이므로 로컬 메모리 활용)
+        const MOCK_INVITE_CODE = "1234"; // DB에서 가져올 임시 초대코드
+        
+        let currentUser = { classId: null, group: null, nickname: '' };
+        let selectedTeamId = null; // 현재 상세 보기 중인 조 (null이면 전체보기)
+        
+        // 6개 조 데이터 초기화
+        const teamsData = Array.from({ length: 6 }, (_, i) => ({
+            id: i + 1,
+            name: `${i + 1}조`,
+            comments: []
+        }));
+
+        // --- 온보딩 로직 ---
+        function verifyClassCode() {
+            const classId = document.getElementById('class-select').value;
+            const code = document.getElementById('invite-code').value;
+
+            if (!classId) return alert("참여할 반을 선택해주세요.");
+            if (code !== MOCK_INVITE_CODE) return alert("초대코드가 올바르지 않습니다."); // 추후 DB 검증 로직으로 교체
+
+            currentUser.classId = classId;
+            document.getElementById('display-class-num').innerText = `${classId}반`;
+            
+            document.getElementById('step1-view').style.display = 'none';
+            document.getElementById('step2-view').style.display = 'block';
+        }
+
+        function goBackToStep1() {
+            document.getElementById('step2-view').style.display = 'none';
+            document.getElementById('step1-view').style.display = 'block';
+        }
+
+        function enterDashboard() {
+            const groupVal = document.getElementById('my-group').value;
+            const nicknameVal = document.getElementById('my-nickname').value.trim();
+
+            if (!groupVal || !nicknameVal) return alert("소속 조와 닉네임을 입력해주세요.");
+
+            currentUser.group = parseInt(groupVal);
+            currentUser.nickname = nicknameVal;
+
+            document.getElementById('step2-view').style.display = 'none';
+            document.getElementById('dashboard-view').style.display = 'flex';
+
+            document.getElementById('dash-class-num').innerText = `${currentUser.classId}반`;
+            document.getElementById('user-info-display').innerHTML = `<i class="fa-solid fa-user-circle"></i> ${currentUser.nickname} (${currentUser.group}조)`;
+
+            // 투자 대상 셀렉트 박스 설정
+            const targetSelect = document.getElementById('target-group');
+            targetSelect.innerHTML = '<option value="" disabled selected>투자할 조 선택</option>';
+            teamsData.forEach(team => {
+                if (team.id !== currentUser.group) {
+                    targetSelect.innerHTML += `<option value="${team.id}">${team.name}</option>`;
+                }
+            });
+
+            renderDashboard();
+        }
+
+        // --- 화면 렌더링 로직 (Master-Detail) ---
+        function renderDashboard() {
+            const centerPanel = document.getElementById('center-panel');
+            const rightPanel = document.getElementById('right-panel');
+
+            if (selectedTeamId === null) {
+                // [전체 보기 상태] 작은 모듈 그리드 표시
+                rightPanel.style.display = 'none';
+                centerPanel.innerHTML = `
+                    <div style="margin-bottom: 20px; font-weight: bold; font-size: 20px; color: #3b82f6;">
+                        📊 전체 조 현황 <span style="font-size: 14px; font-weight: normal; color: #64748b;">(클릭하여 자세히 보기)</span>
+                    </div>
+                    <div class="summary-grid">
+                        ${teamsData.map(renderSummaryHTML).join('')}
+                    </div>
+                `;
+            } else {
+                // [상세 보기 상태] 중앙에 큰 카드, 우측에 나머지 작은 카드
+                const selectedTeam = teamsData.find(t => t.id === selectedTeamId);
+                const otherTeams = teamsData.filter(t => t.id !== selectedTeamId);
+
+                rightPanel.style.display = 'flex';
+                
+                // 중앙 패널 렌더링 (큰 화면)
+                centerPanel.innerHTML = renderDetailHTML(selectedTeam);
+                
+                // 스크롤 맨 아래로 조정
+                const listEl = document.getElementById(`comment-list-${selectedTeam.id}`);
+                if (listEl) listEl.scrollTop = listEl.scrollHeight;
+
+                // 우측 패널 렌더링 (나머지 조)
+                rightPanel.innerHTML = `
+                    <div style="font-weight: bold; color: #64748b; margin-bottom: 5px;">다른 조 현황</div>
+                    ${otherTeams.map(renderSummaryHTML).join('')}
+                `;
+            }
+        }
+
+        // 작은 박스형 모듈 HTML 생성 함수
+        function renderSummaryHTML(team) {
+            const count = team.comments.length;
+            const coins = Math.floor(count / 5);
+            return `
+                <div class="summary-card" onclick="selectTeam(${team.id})">
+                    <h3>${team.name}</h3>
+                    <div class="stats">
+                        <span>의견: ${count}개</span>
+                        <span class="coin-val"><i class="fa-solid fa-coins"></i> ${coins} 코인</span>
+                    </div>
+                    <div class="guide-text">자세히 보기 <i class="fa-solid fa-chevron-right"></i></div>
+                </div>
+            `;
+        }
+
+        // 큰 상세 모듈 HTML 생성 함수
+        function renderDetailHTML(team) {
+            const count = team.comments.length;
+            const coins = Math.floor(count / 5);
+
+            let coinsHtml = coins > 0 
+                ? Array(coins).fill('<i class="fa-solid fa-coins coin"></i>').join('') 
+                : '<span style="font-size:14px; color:#94a3b8;">아직 획득한 코인이 없습니다.</span>';
+
+            let commentsHtml = count > 0
+                ? team.comments.map(c => `<div class="comment-item"><strong>${c.author}</strong>${c.text}</div>`).join('')
+                : '<div style="color:#94a3b8; text-align:center; margin-top:100px;">가장 먼저 엔젤투자 코멘트를 남겨보세요!</div>';
+
+            return `
+                <div class="detail-card" id="detail-card-${team.id}">
+                    <div class="detail-card-header">
+                        <div class="team-info-group">
+                            <div class="team-name">
+                                ${team.name}
+                                <button class="btn-close-detail" onclick="selectTeam(null)"><i class="fa-solid fa-grid-2"></i> 전체보기</button>
+                            </div>
+                            <div class="comment-count-badge">누적 의견: ${count}개</div>
+                        </div>
+                        <div class="flip-board" id="flip-board-detail">
+                            ${coins.toString().padStart(2, '0')}
+                        </div>
+                    </div>
+                    <div class="coin-container" id="coins-${team.id}">
+                        ${coinsHtml}
+                    </div>
+                    <div class="comment-list" id="comment-list-${team.id}">
+                        ${commentsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 조 클릭 (상세보기 토글)
+        function selectTeam(id) {
+            selectedTeamId = id;
+            
+            // 만약 좌측 '투자할 조' 셀렉트박스에 해당 조가 있다면 자동 선택
+            if (id !== null && id !== currentUser.group) {
+                document.getElementById('target-group').value = id;
+            }
+            
+            renderDashboard();
+        }
+
+        // --- 투자하기 및 애니메이션 로직 ---
+        function submitInvestment() {
+            const targetId = parseInt(document.getElementById('target-group').value);
+            const text = document.getElementById('comment-input').value.trim();
+
+            if (!targetId || !text) return alert("투자할 조를 선택하고 코멘트를 남겨주세요!");
+
+            const team = teamsData.find(t => t.id === targetId);
+            const submitBtn = document.getElementById('submit-btn');
+
+            // 1. 데이터 저장
+            team.comments.push({ author: currentUser.nickname, text: text });
+            const count = team.comments.length;
+            const isCoinGenerated = (count % 5 === 0);
+
+            // 2. 투자한 조를 즉시 '상세 보기' 화면으로 전환 (자기가 투자한걸 바로 볼 수 있게)
+            selectedTeamId = targetId;
+            renderDashboard();
+            document.getElementById('comment-input').value = '';
+
+            // 3. 코인 생성 이벤트 애니메이션 처리 (1.5초 딜레이)
+            if (isCoinGenerated) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 코인 생성 중...';
+
+                const flipEl = document.getElementById('flip-board-detail');
+                const finalCoinCount = Math.floor(count / 5).toString().padStart(2, '0');
+                
+                let elapsed = 0;
+                const duration = 1500; 
+                const intervalTime = 50;
+
+                const flipInterval = setInterval(() => {
+                    elapsed += intervalTime;
+                    flipEl.innerText = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+
+                    if (elapsed >= duration) {
+                        clearInterval(flipInterval);
+                        flipEl.innerText = finalCoinCount; // 최종 숫자로 고정
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> 의견 전송';
+                    }
+                }, intervalTime);
+            }
+        }
+
+const SUPABASE_URL = 'https://azdqhbyshxtfunurmyzz.supabase.co/rest/v1/'; 
+const SUPABASE_ANON_KEY = 'sb_publishable_liVvvPhIaJTrGxu5DZjNoA_Rqbn-TqJ';
+    </script>
+</body>
+</html>
