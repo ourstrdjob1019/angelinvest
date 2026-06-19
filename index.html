@@ -498,6 +498,8 @@
             if (!targetId || !text) return alert("투자할 조를 선택하고 코멘트를 남겨주세요!");
 
             const submitBtn = document.getElementById('submit-btn');
+            
+            // 전송 시작 시에만 0.1~0.2초간 잠시 버튼을 막아 중복 클릭 방지
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 전송 중...';
 
@@ -512,17 +514,20 @@
                 text: text
             }).select();
 
+            // 🌟 DB 저장이 끝나면(성공/실패 무관) 버튼을 가장 먼저 즉각 활성화!
+            // (코인이 생성되는 애니메이션 중에도 학생이 글을 칠 수 있습니다)
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> 의견 전송';
+
             if (error) {
                 console.error(error);
                 alert("전송 실패. 다시 시도해주세요.");
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> 의견 전송';
                 return;
             }
 
             document.getElementById('comment-input').value = '';
 
-            // 🌟 내 화면에 즉시 반영 (Realtime 대기 없이 즉각 처리하여 무한 로딩 방지!)
+            // 🌟 내 화면에 즉시 반영
             if (data && data.length > 0) {
                 const newComment = data[0];
                 const team = teamsData.find(t => t.id === targetId);
@@ -531,6 +536,7 @@
                     const isAlreadyAdded = team.comments.some(c => c.id === newComment.id);
                     if (!isAlreadyAdded) {
                         team.comments.push({ id: newComment.id, author: newComment.author, text: newComment.text });
+                        // 화면 렌더링 및 필요시 코인 애니메이션 발생 (버튼은 이미 풀려있음)
                         handleRealtimeUpdate(team);
                     }
                 }
@@ -542,16 +548,11 @@
             const count = team.comments.length;
             const isCoinGenerated = (count % 5 === 0);
 
+            // 화면을 다시 그려서 새 댓글 표시
             renderDashboard(); 
 
-            const submitBtn = document.getElementById('submit-btn');
-
+            // 🌟 코인 생성 애니메이션 처리 (버튼은 비활성화하지 않고 오직 전광판만 돌림)
             if (isCoinGenerated && selectedTeamId === team.id) {
-                if(submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 코인 생성 중...';
-                }
-
                 const flipEl = document.getElementById('flip-board-detail');
                 if(!flipEl) return;
 
@@ -568,17 +569,8 @@
                     if (elapsed >= duration) {
                         clearInterval(flipInterval);
                         flipEl.innerText = finalCoinCount; 
-                        if(submitBtn) {
-                            submitBtn.disabled = false;
-                            submitBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> 의견 전송';
-                        }
                     }
                 }, intervalTime);
-            } else {
-                if(submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> 의견 전송';
-                }
             }
         }
     </script>
