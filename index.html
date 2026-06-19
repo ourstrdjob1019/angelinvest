@@ -368,7 +368,8 @@
                 teamsData.forEach(t => t.comments = []); 
                 data.forEach(dbComment => {
                     const team = teamsData.find(t => t.id === dbComment.team_id);
-                    if(team) team.comments.push({ author: dbComment.author, text: dbComment.text });
+                    // 고유 ID 추가 저장 (중복 방지용)
+                    if(team) team.comments.push({ id: dbComment.id, author: dbComment.author, text: dbComment.text });
                 });
             }
 
@@ -386,8 +387,12 @@
                     const team = teamsData.find(t => t.id === newDbComment.team_id);
                     
                     if (team) {
-                        team.comments.push({ author: newDbComment.author, text: newDbComment.text });
-                        handleRealtimeUpdate(team); 
+                        // 중복 방지: 이미 로컬에 추가된 댓글인지 확인 (내가 쓴 글이 중복 렌더링되지 않도록)
+                        const isAlreadyAdded = team.comments.some(c => c.id === newDbComment.id);
+                        if (!isAlreadyAdded) {
+                            team.comments.push({ id: newDbComment.id, author: newDbComment.author, text: newDbComment.text });
+                            handleRealtimeUpdate(team); 
+                        }
                     }
                 }
               )
@@ -499,13 +504,13 @@
             selectedTeamId = targetId; 
             renderDashboard();
 
-            // DB 저장 로직
-            const { error } = await supabaseClient.from('comments').insert({
+            // DB 저장 로직 (.select()를 추가해서 저장된 데이터를 바로 반환받습니다)
+            const { data, error } = await supabaseClient.from('comments').insert({
                 class_id: currentUser.classId,
                 team_id: targetId,
                 author: currentUser.nickname,
                 text: text
-            });
+            }).select();
 
             if (error) {
                 console.error(error);
@@ -516,6 +521,20 @@
             }
 
             document.getElementById('comment-input').value = '';
+
+            // 🌟 내 화면에 즉시 반영 (Realtime 대기 없이 즉각 처리하여 무한 로딩 방지!)
+            if (data && data.length > 0) {
+                const newComment = data[0];
+                const team = teamsData.find(t => t.id === targetId);
+                
+                if (team) {
+                    const isAlreadyAdded = team.comments.some(c => c.id === newComment.id);
+                    if (!isAlreadyAdded) {
+                        team.comments.push({ id: newComment.id, author: newComment.author, text: newComment.text });
+                        handleRealtimeUpdate(team);
+                    }
+                }
+            }
         }
 
         // --- 실시간 데이터 수신 후 UI/애니메이션 처리 ---
