@@ -50,6 +50,13 @@
         }
         .btn-primary:hover:not(:disabled) { background: #2563eb; transform: translateY(-2px); }
         .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; transform: none; }
+        
+        .btn-secondary {
+            background: #475569; color: white; border: none; padding: 16px; font-size: 18px;
+            font-weight: 700; border-radius: 10px; width: 100%; cursor: pointer; transition: 0.2s;
+        }
+        .btn-secondary:hover { background: #334155; transform: translateY(-2px); }
+
         .btn-back {
             background: transparent; border: none; color: #64748b; margin-bottom: 20px;
             cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 5px;
@@ -85,11 +92,11 @@
         .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
         .summary-card {
             background: #ffffff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 20px;
-            cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); position: relative; overflow: hidden;
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
         .summary-card:hover { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 8px 16px rgba(59,130,246,0.1); }
-        .summary-card.active { border-color: #3b82f6; background: #eff6ff; }
+        .summary-card.active { border-color: #3b82f6; background: #eff6ff; box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); transform: scale(1.02); }
         .summary-card h3 { font-size: 20px; font-weight: 900; color: #0f172a; margin-bottom: 15px; }
         .summary-card .stats { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; color: #475569; }
         .summary-card .stats .coin-val { color: #eab308; display: flex; align-items: center; gap: 4px; }
@@ -151,6 +158,32 @@
             justify-content: center; align-items: center; flex-direction: column; gap:15px;
         }
         .spinner { font-size: 40px; color: #3b82f6; animation: fa-spin 1s infinite linear; }
+
+        /* ==========================================
+           📱 반응형 (Responsive) 모바일 & 태블릿 스타일
+           ========================================== */
+        @media (max-width: 1024px) {
+            #dashboard-view { padding: 20px 15px; }
+            .dashboard-container { flex-direction: column; align-items: stretch; }
+            
+            .left-panel, .right-panel { width: 100%; position: static; }
+            .header { flex-direction: column; align-items: flex-start; gap: 15px; padding-bottom: 15px; }
+            .auth-view { width: 90%; padding: 30px 20px; margin-top: 5vh; }
+        }
+
+        @media (max-width: 600px) {
+            .header h1 { font-size: 24px; }
+            .left-panel { padding: 20px 15px; }
+            .summary-grid { grid-template-columns: 1fr; }
+            .detail-card { padding: 20px 15px; }
+            .detail-card-header { flex-direction: column; gap: 15px; align-items: flex-start; }
+            .team-name { font-size: 24px; flex-wrap: wrap; }
+            .btn-close-detail { margin-top: 5px; }
+            .flip-board { font-size: 42px; min-width: 80px; padding: 8px 12px; letter-spacing: 2px; }
+            #flip-board-detail { align-self: flex-start; }
+            .coin { font-size: 30px; }
+            .comment-list { height: 280px; padding: 15px; }
+        }
     </style>
 </head>
 <body>
@@ -161,8 +194,24 @@
         <h2 style="color:#0f172a;">실시간 데이터를 불러오는 중입니다...</h2>
     </div>
 
+    <!-- 🌟 [온보딩 Step 0] 역할 선택 🌟 -->
+    <div id="role-select-view" class="auth-view">
+        <h1>🧑‍🏫 역할 선택</h1>
+        <p>접속하실 역할을 선택해주세요.</p>
+        
+        <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+            <button class="btn-primary" onclick="selectRole('student')">
+                <i class="fa-solid fa-user-graduate"></i> 학생용 입장
+            </button>
+            <button class="btn-secondary" onclick="selectRole('instructor')">
+                <i class="fa-solid fa-chalkboard-user"></i> 강사용 입장 (현황판 전용)
+            </button>
+        </div>
+    </div>
+
     <!-- [온보딩 Step 1] 반 선택 및 초대코드 -->
-    <div id="step1-view" class="auth-view">
+    <div id="step1-view" class="auth-view" style="display: none;">
+        <button class="btn-back" onclick="goBackToRoleSelect()"><i class="fa-solid fa-arrow-left"></i> 역할 선택으로</button>
         <h1>🏫 학급 입장하기</h1>
         <p>참여 중인 반을 선택하고 초대코드를 입력하세요.</p>
         
@@ -186,7 +235,7 @@
         <button class="btn-primary" onclick="verifyClassCode()">반 입장 확인</button>
     </div>
 
-    <!-- [온보딩 Step 2] 조 선택 및 닉네임 -->
+    <!-- [온보딩 Step 2] 조 선택 및 닉네임 (학생 전용) -->
     <div id="step2-view" class="auth-view" style="display: none;">
         <button class="btn-back" onclick="goBackToStep1()"><i class="fa-solid fa-arrow-left"></i> 뒤로가기</button>
         <h1>👼 <span id="display-class-num" style="color:#3b82f6;"></span> 엔젤투자자 등록</h1>
@@ -221,8 +270,8 @@
         </div>
 
         <div class="dashboard-container">
-            <!-- 좌측: 투자 폼 -->
-            <div class="left-panel">
+            <!-- 좌측: 투자 폼 (강사용일 때는 숨김 처리됨) -->
+            <div class="left-panel" id="invest-form-panel">
                 <h2><i class="fa-solid fa-paper-plane text-blue-500"></i> 투자하기</h2>
                 
                 <div class="input-group">
@@ -259,14 +308,13 @@
         const SUPABASE_URL = 'https://azdqhbyshxtfunurmyzz.supabase.co'; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6ZHFoYnlzaHh0ZnVudXJteXp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzI5NDUsImV4cCI6MjA5NDA0ODk0NX0.xntiwlS5dOdvt9_7Xtstzu9jAGcwhrBp-vfOC7TlVCo';
         
-        // Supabase 클라이언트 초기화 (필수!!!)
+        // Supabase 클라이언트 초기화
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // --- 전역 상태 및 데이터 ---
-        let currentUser = { classId: null, group: null, nickname: '' };
+        let currentUser = { role: null, classId: null, group: null, nickname: '' };
         let selectedTeamId = null; 
         
-        // 6개 조 데이터 초기화 (DB에서 불러와 덮어씁니다)
         let teamsData = Array.from({ length: 6 }, (_, i) => ({
             id: i + 1,
             name: `${i + 1}조`,
@@ -274,6 +322,17 @@
         }));
 
         // --- 온보딩 로직 ---
+        function selectRole(role) {
+            currentUser.role = role;
+            document.getElementById('role-select-view').style.display = 'none';
+            document.getElementById('step1-view').style.display = 'block';
+        }
+
+        function goBackToRoleSelect() {
+            document.getElementById('step1-view').style.display = 'none';
+            document.getElementById('role-select-view').style.display = 'block';
+        }
+
         async function verifyClassCode() {
             const classId = document.getElementById('class-select').value;
             const code = document.getElementById('invite-code').value;
@@ -281,13 +340,12 @@
             if (!classId) return alert("참여할 반을 선택해주세요.");
             if (!code) return alert("초대코드를 입력해주세요.");
 
-            // 버튼 상태 변경 (확인 중)
             const btn = document.querySelector('#step1-view .btn-primary');
             const originalText = btn.innerText;
             btn.disabled = true;
             btn.innerText = '코드 확인 중...';
 
-            // 🌟 Supabase DB에서 해당 반의 초대코드 가져오기
+            // DB에서 해당 반의 초대코드 가져오기 (classes 테이블 연동)
             const { data, error } = await supabaseClient
                 .from('classes')
                 .select('invite_code')
@@ -302,17 +360,28 @@
                 return alert("데이터베이스 오류이거나 존재하지 않는 반입니다.");
             }
 
-            // DB에 저장된 코드와 입력한 코드가 일치하는지 검증
             if (data.invite_code !== code) {
                 return alert("초대코드가 일치하지 않습니다. 다시 확인해주세요.");
             }
 
             // 인증 성공
             currentUser.classId = parseInt(classId);
-            document.getElementById('display-class-num').innerText = `${classId}반`;
-            
             document.getElementById('step1-view').style.display = 'none';
-            document.getElementById('step2-view').style.display = 'block';
+
+            // 🌟 역할에 따른 분기 처리
+            if (currentUser.role === 'student') {
+                document.getElementById('display-class-num').innerText = `${classId}반`;
+                document.getElementById('step2-view').style.display = 'block';
+            } else {
+                // 강사일 경우: 조 선택 건너뛰고 바로 현황판으로 (투자 폼 숨김)
+                document.getElementById('dash-class-num').innerText = `${classId}반`;
+                document.getElementById('user-info-display').innerHTML = `<i class="fa-solid fa-chalkboard-user"></i> 강사용`;
+                
+                document.getElementById('invest-form-panel').style.display = 'none';
+                document.getElementById('dashboard-view').style.display = 'flex';
+                
+                await initDatabaseAndRealtime();
+            }
         }
 
         function goBackToStep1() {
@@ -335,7 +404,6 @@
             document.getElementById('dash-class-num').innerText = `${currentUser.classId}반`;
             document.getElementById('user-info-display').innerHTML = `<i class="fa-solid fa-user-circle"></i> ${currentUser.nickname} (${currentUser.group}조)`;
 
-            // 투자 대상 셀렉트 박스 설정 (본인 조 제외)
             const targetSelect = document.getElementById('target-group');
             targetSelect.innerHTML = '<option value="" disabled selected>투자할 조 선택</option>';
             teamsData.forEach(team => {
@@ -344,7 +412,6 @@
                 }
             });
 
-            // 🌟 대시보드 입장 시 Supabase에서 데이터 불러오고 연동 시작
             await initDatabaseAndRealtime();
         }
 
@@ -354,7 +421,7 @@
         async function initDatabaseAndRealtime() {
             document.getElementById('loading-overlay').style.display = 'flex';
 
-            // 현재 로그인한 '반'의 기존 댓글들 불러오기
+            // comments 테이블에서 현재 접속한 반의 데이터 몽땅 가져오기
             const { data, error } = await supabaseClient
                 .from('comments')
                 .select('*')
@@ -368,7 +435,6 @@
                 teamsData.forEach(t => t.comments = []); 
                 data.forEach(dbComment => {
                     const team = teamsData.find(t => t.id === dbComment.team_id);
-                    // 고유 ID 추가 저장 (중복 방지용)
                     if(team) team.comments.push({ id: dbComment.id, author: dbComment.author, text: dbComment.text });
                 });
             }
@@ -376,7 +442,7 @@
             renderDashboard();
             document.getElementById('loading-overlay').style.display = 'none';
 
-            // 실시간 동기화 구독
+            // 학생과 강사 모두 똑같은 Supabase 채널을 리스닝하여 동시 동기화
             supabaseClient
               .channel('public:comments')
               .on(
@@ -387,7 +453,6 @@
                     const team = teamsData.find(t => t.id === newDbComment.team_id);
                     
                     if (team) {
-                        // 중복 방지: 이미 로컬에 추가된 댓글인지 확인 (내가 쓴 글이 중복 렌더링되지 않도록)
                         const isAlreadyAdded = team.comments.some(c => c.id === newDbComment.id);
                         if (!isAlreadyAdded) {
                             team.comments.push({ id: newDbComment.id, author: newDbComment.author, text: newDbComment.text });
@@ -435,7 +500,7 @@
             const count = team.comments.length;
             const coins = Math.floor(count / 5);
             return `
-                <div class="summary-card" onclick="selectTeam(${team.id})">
+                <div class="summary-card" id="summary-card-${team.id}" onclick="selectTeam(${team.id})">
                     <h3>${team.name}</h3>
                     <div class="stats">
                         <span>의견: ${count}개</span>
@@ -484,7 +549,8 @@
 
         function selectTeam(id) {
             selectedTeamId = id;
-            if (id !== null && id !== currentUser.group) {
+            
+            if (currentUser.role === 'student' && id !== null && id !== currentUser.group) {
                 document.getElementById('target-group').value = id;
             }
             renderDashboard();
@@ -492,6 +558,8 @@
 
         // --- 투자하기 DB 저장 ---
         async function submitInvestment() {
+            if(currentUser.role === 'instructor') return;
+
             const targetId = parseInt(document.getElementById('target-group').value);
             const text = document.getElementById('comment-input').value.trim();
 
@@ -499,14 +567,13 @@
 
             const submitBtn = document.getElementById('submit-btn');
             
-            // 전송 시작 시에만 0.1~0.2초간 잠시 버튼을 막아 중복 클릭 방지
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 전송 중...';
 
             selectedTeamId = targetId; 
             renderDashboard();
 
-            // DB 저장 로직 (.select()를 추가해서 저장된 데이터를 바로 반환받습니다)
+            // comments 테이블에 데이터 전송
             const { data, error } = await supabaseClient.from('comments').insert({
                 class_id: currentUser.classId,
                 team_id: targetId,
@@ -514,8 +581,6 @@
                 text: text
             }).select();
 
-            // 🌟 DB 저장이 끝나면(성공/실패 무관) 버튼을 가장 먼저 즉각 활성화!
-            // (코인이 생성되는 애니메이션 중에도 학생이 글을 칠 수 있습니다)
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> 의견 전송';
 
@@ -527,7 +592,6 @@
 
             document.getElementById('comment-input').value = '';
 
-            // 🌟 내 화면에 즉시 반영
             if (data && data.length > 0) {
                 const newComment = data[0];
                 const team = teamsData.find(t => t.id === targetId);
@@ -536,7 +600,6 @@
                     const isAlreadyAdded = team.comments.some(c => c.id === newComment.id);
                     if (!isAlreadyAdded) {
                         team.comments.push({ id: newComment.id, author: newComment.author, text: newComment.text });
-                        // 화면 렌더링 및 필요시 코인 애니메이션 발생 (버튼은 이미 풀려있음)
                         handleRealtimeUpdate(team);
                     }
                 }
@@ -548,10 +611,21 @@
             const count = team.comments.length;
             const isCoinGenerated = (count % 5 === 0);
 
-            // 화면을 다시 그려서 새 댓글 표시
+            // 1. 화면 새로 갱신 (전체보기 or 상세보기 모두 반영)
             renderDashboard(); 
 
-            // 🌟 코인 생성 애니메이션 처리 (버튼은 비활성화하지 않고 오직 전광판만 돌림)
+            // 2. [추가] 강사/학생이 '전체 보기(모듈)' 화면을 보고 있을 때, 의견이 추가된 카드를 반짝이게 하이라이트
+            if (selectedTeamId === null) {
+                const summaryCard = document.getElementById(`summary-card-${team.id}`);
+                if (summaryCard) {
+                    summaryCard.classList.add('active');
+                    setTimeout(() => {
+                        if(summaryCard) summaryCard.classList.remove('active');
+                    }, 1000);
+                }
+            }
+
+            // 3. 코인 생성 애니메이션 처리
             if (isCoinGenerated && selectedTeamId === team.id) {
                 const flipEl = document.getElementById('flip-board-detail');
                 if(!flipEl) return;
